@@ -3,9 +3,7 @@
 //! This type of lock allows multiple readers or one writer at any point in time.
 //!
 //! The locking strategy is write-preferring, which means writers are never starved.
-//!
-//! Releasing a write lock wakes the next blocked reader and the next blocked writer. If the task
-//! scheduler is fair, readers will not be starved either.
+//! Releasing a write lock wakes the next blocked reader and the next blocked writer.
 //!
 //! # Examples
 //!
