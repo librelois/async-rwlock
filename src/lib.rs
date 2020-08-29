@@ -66,7 +66,7 @@ const ONE_READER: usize = 2;
 /// assert_eq!(*w, 6);
 /// # })
 /// ```
-pub struct RwLock<T> {
+pub struct RwLock<T: ?Sized> {
     /// Acquired by the writer.
     mutex: Mutex<()>,
 
@@ -89,8 +89,8 @@ pub struct RwLock<T> {
     value: UnsafeCell<T>,
 }
 
-unsafe impl<T: Send> Send for RwLock<T> {}
-unsafe impl<T: Send + Sync> Sync for RwLock<T> {}
+unsafe impl<T: Send + ?Sized> Send for RwLock<T> {}
+unsafe impl<T: Send + Sync + ?Sized> Sync for RwLock<T> {}
 
 impl<T> RwLock<T> {
     /// Creates a new reader-writer lock.
@@ -112,6 +112,22 @@ impl<T> RwLock<T> {
         }
     }
 
+    /// Unwraps the lock and returns the inner value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use async_rwlock::RwLock;
+    ///
+    /// let lock = RwLock::new(5);
+    /// assert_eq!(lock.into_inner(), 5);
+    /// ```
+    pub fn into_inner(self) -> T {
+        self.value.into_inner()
+    }
+}
+
+impl<T: ?Sized> RwLock<T> {
     /// Attempts to acquire a read lock.
     ///
     /// If a read lock could not be acquired at this time, then [`None`] is returned. Otherwise, a
@@ -305,23 +321,9 @@ impl<T> RwLock<T> {
     pub fn get_mut(&mut self) -> &mut T {
         unsafe { &mut *self.value.get() }
     }
-
-    /// Unwraps the lock and returns the inner value.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use async_rwlock::RwLock;
-    ///
-    /// let lock = RwLock::new(5);
-    /// assert_eq!(lock.into_inner(), 5);
-    /// ```
-    pub fn into_inner(self) -> T {
-        self.value.into_inner()
-    }
 }
 
-impl<T: fmt::Debug> fmt::Debug for RwLock<T> {
+impl<T: fmt::Debug + ?Sized> fmt::Debug for RwLock<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         struct Locked;
         impl fmt::Debug for Locked {
@@ -343,19 +345,19 @@ impl<T> From<T> for RwLock<T> {
     }
 }
 
-impl<T: Default> Default for RwLock<T> {
+impl<T: Default + ?Sized> Default for RwLock<T> {
     fn default() -> RwLock<T> {
         RwLock::new(Default::default())
     }
 }
 
 /// A guard that releases the read lock when dropped.
-pub struct RwLockReadGuard<'a, T>(&'a RwLock<T>);
+pub struct RwLockReadGuard<'a, T: ?Sized>(&'a RwLock<T>);
 
-unsafe impl<T: Sync> Send for RwLockReadGuard<'_, T> {}
-unsafe impl<T: Sync> Sync for RwLockReadGuard<'_, T> {}
+unsafe impl<T: Sync + ?Sized> Send for RwLockReadGuard<'_, T> {}
+unsafe impl<T: Sync + ?Sized> Sync for RwLockReadGuard<'_, T> {}
 
-impl<T> Drop for RwLockReadGuard<'_, T> {
+impl<T: ?Sized> Drop for RwLockReadGuard<'_, T> {
     fn drop(&mut self) {
         // Decrement the number of readers.
         if self.0.state.fetch_sub(ONE_READER, Ordering::SeqCst) & !WRITER_BIT == ONE_READER {
@@ -365,19 +367,19 @@ impl<T> Drop for RwLockReadGuard<'_, T> {
     }
 }
 
-impl<T: fmt::Debug> fmt::Debug for RwLockReadGuard<'_, T> {
+impl<T: fmt::Debug + ?Sized> fmt::Debug for RwLockReadGuard<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&**self, f)
     }
 }
 
-impl<T: fmt::Display> fmt::Display for RwLockReadGuard<'_, T> {
+impl<T: fmt::Display + ?Sized> fmt::Display for RwLockReadGuard<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         (**self).fmt(f)
     }
 }
 
-impl<T> Deref for RwLockReadGuard<'_, T> {
+impl<T: ?Sized> Deref for RwLockReadGuard<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -386,12 +388,12 @@ impl<T> Deref for RwLockReadGuard<'_, T> {
 }
 
 /// A guard that releases the write lock when dropped.
-pub struct RwLockWriteGuard<'a, T>(&'a RwLock<T>, MutexGuard<'a, ()>);
+pub struct RwLockWriteGuard<'a, T: ?Sized>(&'a RwLock<T>, MutexGuard<'a, ()>);
 
-unsafe impl<T: Send> Send for RwLockWriteGuard<'_, T> {}
-unsafe impl<T: Sync> Sync for RwLockWriteGuard<'_, T> {}
+unsafe impl<T: Send + ?Sized> Send for RwLockWriteGuard<'_, T> {}
+unsafe impl<T: Sync + ?Sized> Sync for RwLockWriteGuard<'_, T> {}
 
-impl<T> Drop for RwLockWriteGuard<'_, T> {
+impl<T: ?Sized> Drop for RwLockWriteGuard<'_, T> {
     fn drop(&mut self) {
         // Unset `WRITER_BIT`.
         self.0.state.fetch_and(!WRITER_BIT, Ordering::SeqCst);
@@ -400,19 +402,19 @@ impl<T> Drop for RwLockWriteGuard<'_, T> {
     }
 }
 
-impl<T: fmt::Debug> fmt::Debug for RwLockWriteGuard<'_, T> {
+impl<T: fmt::Debug + ?Sized> fmt::Debug for RwLockWriteGuard<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&**self, f)
     }
 }
 
-impl<T: fmt::Display> fmt::Display for RwLockWriteGuard<'_, T> {
+impl<T: fmt::Display + ?Sized> fmt::Display for RwLockWriteGuard<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         (**self).fmt(f)
     }
 }
 
-impl<T> Deref for RwLockWriteGuard<'_, T> {
+impl<T: ?Sized> Deref for RwLockWriteGuard<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -420,7 +422,7 @@ impl<T> Deref for RwLockWriteGuard<'_, T> {
     }
 }
 
-impl<T> DerefMut for RwLockWriteGuard<'_, T> {
+impl<T: ?Sized> DerefMut for RwLockWriteGuard<'_, T> {
     fn deref_mut(&mut self) -> &mut T {
         unsafe { &mut *self.0.value.get() }
     }
