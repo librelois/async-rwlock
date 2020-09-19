@@ -177,6 +177,9 @@ impl<T: ?Sized> RwLock<T> {
     ///
     /// Returns a guard that releases the lock when dropped.
     ///
+    /// **Note that attempts to recursively acquire a read lock on a RwLock
+    /// when the current task already holds one may result in a deadlock.**
+    ///
     /// # Examples
     ///
     /// ```

@@ -1,3 +1,7 @@
+# Unreleased
+
+- Documenting the risk of deadlock in case of recursive reads
+
 # Version 1.1.0
 
 - Allow `T: ?Sized`.
